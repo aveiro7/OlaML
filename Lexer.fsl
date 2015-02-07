@@ -1,0 +1,63 @@
+﻿{
+module Lexer
+open System
+open Microsoft.FSharp.Text
+open Parser
+open System.Text
+exception LexingError of string
+
+let keywords = 
+    [
+        "fun", FUN;
+        "let", LET;
+        "in", IN;
+        "if", IF;
+        "else", ELSE;
+        "then", THEN;
+        "true", BOOL(true);
+        "false", BOOL(false);
+        "not", NOT
+    ] |> Map.ofList
+
+}
+
+
+
+let ident = ['_' 'A'-'Z' 'a'-'z']['_' 'A'-'Z' 'a'-'z' '0'-'9']*
+let integer = ['0'-'9']+
+let float = ['0'-'9']+'.'['0'-'9']*
+let str = '"'[^'"']+'"'
+
+rule tokenize = parse
+	|[' ' '\t' '\r' '\n']	{ tokenize lexbuf }
+	| ident					{ match keywords.TryFind(Encoding.ASCII.GetString (lexbuf.Lexeme)) with
+                                | Some(token) -> token
+                                | None -> IDENT (Encoding.ASCII.GetString (lexbuf.Lexeme)) }
+    | integer               { INT (Int32.Parse(Encoding.ASCII.GetString (lexbuf.Lexeme))) }
+    | str                   { let s = Encoding.ASCII.GetString (lexbuf.Lexeme) in STRING (s.Substring(1, s.Length - 2)) }
+    | float                 { FLOAT (Double.Parse((Encoding.ASCII.GetString (lexbuf.Lexeme)).Replace('.', ',') )) }
+	| '('		{ LPAREN }
+	| ')'		{ RPAREN }
+	| '['		{ LBRACKET }
+	| ']'		{ RBRACKET }
+	| '='		{ ASSIGN }
+	| "->"		{ ARROW }
+    | '+'       { PLUS }
+    | '-'       { MINUS }
+    | '*'       { MUL }
+    | '/'       { DIV }
+    | "+."      { FPLUS }
+    | "-."      { FMINUS }
+    | "*."      { FMUL }
+    | "/."      { FDIV }
+    | "=="      { EQ }
+    | '<'       { GT }
+    | "<="      { GEQ }
+    | '>'       { LT }
+    | ">="      { LEQ }
+	| eof		{ EOF }
+    | ';'       { SEMICOLON }
+    | ','       { COMMA }
+    | '^'       { CONCAT }
+    | '@'       { AT }
+	| _			{ raise (LexingError "lexing error - unknown char") }

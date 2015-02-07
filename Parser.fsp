@@ -1,0 +1,105 @@
+﻿%{
+
+open GrammarRules
+open TypeInference
+
+%}
+
+%token <string> IDENT
+%token <int> INT
+%token <float> FLOAT
+%token <string> STRING
+%token <bool> BOOL
+%token FUN LET IN
+%token LPAREN RPAREN LBRACKET RBRACKET
+%token ARROW ASSIGN SEMICOLON COMMA AT
+%token PLUS FPLUS MINUS FMINUS 
+%token MUL FMUL DIV FDIV
+%token CONCAT
+%token EOF
+%token IF ELSE THEN
+%token NOT EQ LT LEQ GT GEQ
+
+%left IF
+%left AT
+%left LPAREN
+%left CONCAT
+%left PLUS FPLUS MINUS FMINUS
+%left MUL FMUL DIV FDIV
+%left EQ LT LEQ GT GEQ
+%left NOT
+%left IDENT
+
+%right IN
+%right FUN
+
+
+%nonassoc INT FLOAT STRING
+
+%start program
+%type <GrammarRules.expr list> program
+
+%%
+
+program: 
+    | statement                     { [$1] }
+    | statement SEMICOLON program   { $1 :: $3 }
+    
+
+statement:  let_expr    { $1 }
+            | expr      { $1 }
+
+let_expr:  LET IDENT ASSIGN statement  { Let($2, $4) }
+            | LET IDENT ASSIGN statement IN statement    { LetIn($2, $4, $6) }
+
+expr:  IDENT                                { Var $1 }
+        | literal                           { $1 }
+        | operator                          { $1 }
+        | lambda_expr                       { $1 }
+        | app                               { $1 }
+        | LPAREN expr RPAREN                { $2 }
+        | IF expr THEN expr ELSE expr       { IfElse($2, $4, $6) }
+        | LBRACKET expr_comma_list RBRACKET { List $2 }
+        | LPAREN tuple_expr_list RPAREN     { Tuple $2 }
+
+literal:    INT         { Int $1 }
+            | FLOAT     { Float $1 }
+            | STRING    { String $1 }
+            | BOOL      { Bool $1 }
+    
+operator:   expr PLUS expr      { Sum($1, $3) }
+            | expr MINUS expr   { Diff($1, $3) }
+            | expr MUL expr     { Mul($1, $3) }
+            | expr DIV expr     { Div($1, $3) }
+            | expr FPLUS expr   { FloatSum($1, $3) }
+            | expr FMINUS expr  { FloatDiff($1, $3) }
+            | expr FMUL expr    { FloatMul($1, $3) }
+            | expr FDIV expr    { FloatDiv($1, $3) }
+            | expr CONCAT expr  { Concat($1, $3) }
+            | NOT expr          { Not($2) }
+            | expr EQ expr      { Compare($1, Equal, $3) }
+            | expr GT expr      { Compare($1, Greater, $3) }
+            | expr GEQ expr     { Compare($1, GreaterEq, $3) }
+            | expr LT expr      { Compare($1, Less, $3) }
+            | expr LEQ expr     { Compare($1, LessEq, $3) }
+            | expr AT expr      { ListConcat($1, $3) }
+             
+
+lambda_expr: FUN ident_list ARROW expr   { Fun($2, $4) }
+
+app: expr expr_list { Call($1, $2) }
+
+expr_list:  expr                { [$1] }
+            | expr expr_list    { $1 :: $2 }
+
+ident_list:
+	| IDENT					{ [$1] }
+	| IDENT ident_list		{ $1 :: $2 }
+
+expr_comma_list:
+    | expr                         { [$1] }
+    | expr COMMA expr_comma_list   { $1 :: $3}
+
+tuple_expr_list:
+    | expr COMMA                    { [$1] }
+    | expr COMMA expr_comma_list    { $1 :: $3 }
